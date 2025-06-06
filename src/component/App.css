@@ -1,0 +1,16 @@
+
+@keyframes floatDown {
+  0% {
+    transform: translateY(-20px);
+  }
+  50% {
+    transform: translateY(20px);
+  }
+  100% {
+    transform: translateY(-20px);
+  }
+}
+
+.float-down {
+  animation: floatDown 3s ease-in-out infinite;
+}
