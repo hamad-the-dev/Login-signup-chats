@@ -29,10 +29,9 @@ const Main = () => {
         Hey <span className='text-sky-500'>{userData ? userData.name : 'Developer'}!</span>
       </h1>
       <h2 className='text-3xl sm:text-5xl font-semibold mb-4 text-white'>Welcome to <span className='text-sky-400'>our App</span></h2>
-      <p className='text-white'>Let's start with a quick product tour and you'll be up and running in no time.</p>
-      <button
+      <p className='text-white'>Let's start with a quick product tour and you'll be up and running in no time.</p>      <button
         className='border flex items-center gap-2 border-white hover:text-white hover:border-sky-600 rounded-full px-8 py-2.5 mt-10 cursor-pointer hover:bg-sky-400 transition-all'
-        onClick={() => navigate('/chat')}
+        onClick={() => userData ? navigate('/chat') : navigate('/login')}
       >
         Get Started
         <IoIosArrowRoundForward className='text-xl' />

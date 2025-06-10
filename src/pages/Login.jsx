@@ -20,12 +20,13 @@ const Login = () => {
   const [error, setError] = useState("");
 
   const onSubitHandler = async (e) => {
-    try {
-      e.preventDefault();
-      setError("");
-      axios.defaults.withCredentials = true;
+    e.preventDefault();
+    toast.dismiss(); 
+    setError("");
+    axios.defaults.withCredentials = true;
 
-      if (state === "Sign Up") {
+    if (state === "Sign Up") {
+      try {
         const { data } = await axios.post(`${backendurl}/api/auth/register`, {
           name,
           email,
@@ -33,49 +34,48 @@ const Login = () => {
         });
 
         if (data.success) {
-          toast.success("User registered successfully");
+          toast.success("User registered successfully", { toastId: "register-success" });
           setState("Login");
         } else {
-          toast.error(data.message);
+          toast.error(data.message, { toastId: "register-error" });
         }
-      } else {
-        try {
-          const { data } = await axios.post(`${backendurl}/api/auth/login`, {
-            email,
-            password,
-          });
+      } catch (error) {
+        setError(error.message);
+        toast.error(error.message, { toastId: "register-catch" });
+      }
+    } else {
+      try {
+        const { data } = await axios.post(`${backendurl}/api/auth/login`, {
+          email,
+          password,
+        });
 
-          if (data.success) {
-            toast.success("Login successful");
-            setIsLoggedin(true);
-            getuserData();
-            localStorage.setItem("token", data.user.token);
+        if (data.success) {
+          toast.success("Login successful", { toastId: "login-success" });
+          setIsLoggedin(true);
+          getuserData();
+          localStorage.setItem("token", data.user.token);
+          localStorage.setItem("userRole", data.user.role);
+          localStorage.setItem("user", JSON.stringify(data?.user));
 
-            localStorage.setItem("userRole", data.user.role);
-localStorage.setItem("user", JSON.stringify(data?.user));
-
-            if (data.user.role === "admin") {
-              navigate("/admin-dashboard");
-            } else {
-              navigate("/");
-            }
+          if (data.user.role === "admin") {
+            navigate("/admin-dashboard");
           } else {
-            setError(data.message);
-            toast.error(data.message);
+            navigate("/");
           }
-        } catch (error) {
-          if (error.response && error.response.status === 403) {
-            setError(error.response.data.message);
-            toast.error(error.response.data.message);
-          } else {
-            setError("An error occurred during login");
-            toast.error("An error occurred during login");
-          }
+        } else {
+          setError(data.message);
+          toast.error(data.message, { toastId: "login-error" });
+        }
+      } catch (error) {
+        if (error.response && error.response.status === 403) {
+          setError(error.response.data.message);
+          toast.error(error.response.data.message, { toastId: "login-403" });
+        } else {
+          setError("An error occurred during login");
+          toast.error("An error occurred during login", { toastId: "login-catch" });
         }
       }
-    } catch (error) {
-      setError(error.message);
-      toast.error(error.message);
     }
   };
 

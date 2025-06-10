@@ -55,7 +55,7 @@ const Navbar = () => {
       </div> 
       {userData ? (
         <div className="w-8 h-8 justify-center items-center flex rounded-full bg-sky-400 text-gray-100 font-semibold relative group">
-          {userData.name[0].toUpperCase()}          <div className="absolute hidden group-hover:block top-0 right-0 z-10 text-black rounded pt-10">
+          {userData.name[0].toUpperCase()}          <div className="absolute hidden group-hover:block top-0 right -0 z-10 text-black rounded pt-10">
             <ul className="list-none m-0 p-2 bg-gray-100 text-sm">
               {!userData.isAccountVerified && (
                 <li
