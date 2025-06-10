@@ -10,9 +10,9 @@ import axiosPrivate from '../utils/axisoPrivate';
 
 const Chat = () => {
   const { userData } = useContext(AppContext);
-  const [showModal, setShowModal] = useState(false);
-  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);  const [showRenameModal, setShowRenameModal] = useState(false);
   const [showEditMembersModal, setShowEditMembersModal] = useState(false);
+  const [groupToRename, setGroupToRename] = useState(null);
   const [groupToEdit, setGroupToEdit] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [newGroupName, setNewGroupName] = useState('');
@@ -86,7 +86,6 @@ const Chat = () => {
     setShowModal(false);
     setActiveGroup(newGroupName);
   };
-
   const handleRenameGroup = (e) => {
     e.preventDefault();
     if (!newGroupName.trim() || !groupToRename) return;
@@ -97,15 +96,23 @@ const Chat = () => {
         ? { ...g, name: newGroupName }
         : g
     ));
+    
+    // Update messages for the renamed group
     setMessagesByGroup(prev => {
       const messages = { ...prev };
-      messages[newGroupName] = messages[oldGroupName];
-      delete messages[oldGroupName];
+      if (messages[oldGroupName]) {
+        messages[newGroupName] = messages[oldGroupName];
+        delete messages[oldGroupName];
+      }
       return messages;
     });
+
+    // Update active group if it was renamed
     if (activeGroup === oldGroupName) {
       setActiveGroup(newGroupName);
     }
+
+    // Reset states
     setShowRenameModal(false);
     setGroupToRename(null);
     setNewGroupName('');
@@ -208,14 +215,15 @@ const Chat = () => {
                     Members: {group.members.join(', ')}
                   </div>
                 </div>
-                <div className="flex space-x-1">                  <div className="relative group">
+                <div className="flex space-x-1">                
+              <div className="relative group">
                     <button
                       onClick={(e) => e.stopPropagation()}
                       className="text-gray-400 hover:text-blue-500 p-1 rounded-full hover:bg-gray-100"
                     >
                       <FaRegEdit size={16} />
                     </button>
-                    <div className="hidden group-hover:block absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50">
+                    <div className="hidden group-hover:block absolute right-0 mt-0 w-48 bg-white rounded-md shadow-lg z-50">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
