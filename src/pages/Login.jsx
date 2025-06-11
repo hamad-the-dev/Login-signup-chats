@@ -48,15 +48,14 @@ const Login = () => {
         const { data } = await axios.post(`${backendurl}/api/auth/login`, {
           email,
           password,
-        });
-
-        if (data.success) {
+        });        if (data.success) {
           toast.success("Login successful", { toastId: "login-success" });
           setIsLoggedin(true);
-          getuserData();
-          localStorage.setItem("token", data.user.token);
-          localStorage.setItem("userRole", data.user.role);
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
           localStorage.setItem("user", JSON.stringify(data?.user));
+          await getuserData();
 
           if (data.user.role === "admin") {
             navigate("/admin-dashboard");

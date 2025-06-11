@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { IoMdNotifications } from "react-icons/io";
-import { IoPersonAdd } from "react-icons/io5";
+import { IoIosArrowDropdown } from "react-icons/io";
 import { IoClose } from "react-icons/io5";
 import { IoTrash } from "react-icons/io5";
 import { FaRegEdit } from "react-icons/fa";
@@ -10,33 +10,55 @@ import axiosPrivate from '../utils/axisoPrivate';
 
 const Chat = () => {
   const { userData } = useContext(AppContext);
-  const [showModal, setShowModal] = useState(false);  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
   const [showEditMembersModal, setShowEditMembersModal] = useState(false);
+  const [showMembers, setShowMembers] = useState(true);
   const [groupToRename, setGroupToRename] = useState(null);
   const [groupToEdit, setGroupToEdit] = useState(null);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [activeGroup, setActiveGroup] = useState('General');
-  const [groups, setGroups] = useState([
-    {
-      id: 1,
-      name: 'General',
-      members: [userData?.name || 'Guest (You)']
-    }
-  ]);
-  const [messagesByGroup, setMessagesByGroup] = useState({
-    General: []
-  });
-  const [members, setMembers] = useState([]);
+  const [activeGroup, setActiveGroup] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [messagesByGroup, setMessagesByGroup] = useState({});
+  const [members, setMembers] = useState([]); 
   const [newMessage, setNewMessage] = useState('');
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        const response = await axiosPrivate.get('/api/groups/all-groups');
+        if (response.data.success) {
+          const groups = response.data.groups;
+          setGroups(groups);
+        
+          const messages = {};
+          groups.forEach(group => {
+            messages[group.name] = (group.messages || []).map(msg => ({
+              id: msg._id,
+              text: msg.text,
+              sender: msg.sender.name,
+              timestamp: new Date(msg.timestamp).toLocaleString()
+            }));
+          });
+          setMessagesByGroup(messages);
+        }
+      } catch (error) {
+        console.error('Error fetching groups:', error);
+      }
+    };
+
+    fetchGroups();
+  }, []);
+
 
   useEffect(() => {
     const fetchOnlineUsers = async () => {
       try {
         const response = await axiosPrivate.get('/api/user/online-users');
         if (response.data.success) {
-          setMembers(response.data.users.map(user => user.name));
+          setMembers(response.data.users); 
         }
       } catch (error) {
         console.error('Error fetching online users:', error);
@@ -47,134 +69,165 @@ const Chat = () => {
     const interval = setInterval(fetchOnlineUsers, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    const userMessage = {
-      id: messagesByGroup[activeGroup]?.length + 1 || 1,
-      text: newMessage,
-      sender: userData?.name || 'Guest (You)',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
+    try {
+    
+      const currentGroup = groups.find(g => g.name === activeGroup);
+      if (!currentGroup) {
+        console.error('Group not found');
+        return;
+      }
 
-    setMessagesByGroup(prev => ({
-      ...prev,
-      [activeGroup]: [...(prev[activeGroup] || []), userMessage]
-    }));
-    setNewMessage('');
+      const response = await axiosPrivate.post('/api/groups/message', {
+        groupId: currentGroup._id,
+        text: newMessage,
+        sender: userData?._id
+      });
+
+      if (response.data.success) {
+        setMessagesByGroup(prev => ({
+          ...prev,
+          [activeGroup]: [...(prev[activeGroup] || []), response.data.message]
+        }));
+        setNewMessage('');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Failed to send message. Please try again.');
+    }
   };
 
-  const handleCreateGroup = (e) => {
+  const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim() || selectedUsers.length === 0) return;
 
-    const newGroup = {
-      id: groups.length + 1,
-      name: newGroupName,
-      members: [...selectedUsers, userData?.name || 'Guest (You)']
-    };
+    try {
+      const response = await axiosPrivate.post('/api/groups/create', {
+        name: newGroupName,
+        members: selectedUsers,
+        userId: userData?._id
+      });
 
-    setGroups([...groups, newGroup]);
-    setMessagesByGroup(prev => ({
-      ...prev,
-      [newGroupName]: []
-    }));
-    setNewGroupName('');
-    setSelectedUsers([]);
-    setShowModal(false);
-    setActiveGroup(newGroupName);
+      if (response.data.success) {
+        setGroups(prev => [...prev, response.data.group]);
+        setMessagesByGroup(prev => ({
+          ...prev,
+          [response.data.group.name]: []
+        }));
+        setNewGroupName('');
+        setSelectedUsers([]);
+        setShowModal(false);
+        setActiveGroup(response.data.group.name);
+      }
+    } catch (error) {
+      console.error('Error creating group:', error);
+    }
   };
-  const handleRenameGroup = (e) => {
+
+  const handleRenameGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim() || !groupToRename) return;
 
-    const oldGroupName = groupToRename.name;
-    setGroups(prev => prev.map(g => 
-      g.id === groupToRename.id 
-        ? { ...g, name: newGroupName }
-        : g
-    ));
-    
-    // Update messages for the renamed group
-    setMessagesByGroup(prev => {
-      const messages = { ...prev };
-      if (messages[oldGroupName]) {
-        messages[newGroupName] = messages[oldGroupName];
-        delete messages[oldGroupName];
-      }
-      return messages;
-    });
-
-    // Update active group if it was renamed
-    if (activeGroup === oldGroupName) {
-      setActiveGroup(newGroupName);
-    }
-
-    // Reset states
-    setShowRenameModal(false);
-    setGroupToRename(null);
-    setNewGroupName('');
-  };
-
-  const handleDeleteGroup = (groupId, groupName) => {
-    if (window.confirm(`Are you sure you want to delete the group "${groupName}"?`)) {
-      setGroups(prev => prev.filter(g => g.id !== groupId));
-      setMessagesByGroup(prev => {
-        const { [groupName]: deleted, ...rest } = prev;
-        return rest;
+    try {
+      const response = await axiosPrivate.put(`/api/groups/${groupToRename._id}/rename`, {
+        name: newGroupName,
       });
-      
-      if (activeGroup === groupName) {
-        if (groups.length === 1) {
-          const newGeneralGroup = {
-            id: 1,
-            name: 'General',
-            members: [userData?.name || 'Guest (You)']
-          };
-          setGroups([newGeneralGroup]);
-          setMessagesByGroup({ General: [] });
-          setActiveGroup('General');
-        } else {
-          const firstGroup = groups.find(g => g.id !== groupId);
-          setActiveGroup(firstGroup?.name || 'General');
+
+      if (response.data.success) {
+        const oldGroupName = groupToRename.name;
+        setGroups(prev => prev.map(g => 
+          g._id === groupToRename._id ? { ...g, name: newGroupName } : g
+        ));
+        
+        setMessagesByGroup(prev => {
+          const messages = { ...prev };
+          if (messages[oldGroupName]) {
+            messages[newGroupName] = messages[oldGroupName];
+            delete messages[oldGroupName];
+          }
+          return messages;
+        });
+
+        if (activeGroup === oldGroupName) {
+          setActiveGroup(newGroupName);
         }
+
+        setShowRenameModal(false);
+        setGroupToRename(null);
+        setNewGroupName('');
+      }
+    } catch (error) {
+      console.error('Error renaming group:', error);
+      alert('Failed to rename group. Please try again.');
+    }
+  };
+
+  const handleDeleteGroup = async (groupId, groupName) => {
+    if (window.confirm(`Are you sure you want to delete the group "${groupName}"?`)) {
+      try {
+        const response = await axiosPrivate.delete(`/api/groups/${groupId}`);
+        
+        if (response.data.success) {
+          setGroups(prev => prev.filter(g => g._id !== groupId));
+          setMessagesByGroup(prev => {
+            const { [groupName]: deleted, ...rest } = prev;
+            return rest;
+          });
+          
+          if (activeGroup === groupName) {
+            const firstGroup = groups.find(g => g._id !== groupId);
+            setActiveGroup(firstGroup?.name || '');
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting group:', error);
       }
     }
   };
 
-  const handleEditMembers = (e) => {
+  const handleEditMembers = async (e) => {
     e.preventDefault();
     if (!groupToEdit) return;
 
-    setGroups(prev => prev.map(g => 
-      g.id === groupToEdit.id 
-        ? { ...g, members: [...selectedMembers, userData?.name || 'Guest (You)'] }
-        : g
-    ));
-    setShowEditMembersModal(false);
-    setGroupToEdit(null);
-    setSelectedMembers([]);
+    try {
+      const response = await axiosPrivate.put(`/api/groups/${groupToEdit._id}`, {
+        name: groupToEdit.name,
+        members: [...selectedMembers, userData?._id]
+      });
+
+      if (response.data.success) {
+        setGroups(prev => prev.map(g => 
+          g._id === groupToEdit._id ? response.data.group : g
+        ));
+        setShowEditMembersModal(false);
+        setGroupToEdit(null);
+        setSelectedMembers([]);
+      }
+    } catch (error) {
+      console.error('Error updating group members:', error);
+    }
   };
 
   const toggleMemberSelection = (member) => {
-    if (member.includes('You')) return;
+    if (member._id === userData?._id) return; 
     
     setSelectedMembers(prev => 
-      prev.includes(member)
-        ? prev.filter(m => m !== member)
-        : [...prev, member]
+      prev.includes(member._id)
+        ? prev.filter(id => id !== member._id)
+        : [...prev, member._id]
     );
   };
 
   const toggleUserSelection = (member) => {
-    if (member.includes('You')) return;
+    if (member._id === userData?._id) return;
     
     setSelectedUsers(prev => 
-      prev.includes(member)
-        ? prev.filter(m => m !== member)
-        : [...prev, member]
+      prev.includes(member._id)
+        ? prev.filter(id => id !== member._id)
+        : [...prev, member._id]
     );
   };
 
@@ -200,7 +253,7 @@ const Chat = () => {
         <div className="flex-1 overflow-y-auto">
           {groups.map(group => (
             <div
-              key={group.id}
+              key={group._id}
               className={`p-4 cursor-pointer hover:bg-gray-50 ${
                 activeGroup === group.name ? 'bg-blue-50' : ''
               } relative`}
@@ -210,9 +263,8 @@ const Chat = () => {
                   className="flex-1"
                   onClick={() => setActiveGroup(group.name)}
                 >
-                  <div className="font-medium">{group.name}</div>
-                  <div className="text-sm text-gray-500">
-                    Members: {group.members.join(', ')}
+                  <div className="font-medium">{group.name}</div>                  <div className="text-sm text-gray-500">
+                    Members: {group.members.map(member => member.name).join(', ')}
                   </div>
                 </div>
                 <div className="flex space-x-1">                
@@ -239,7 +291,7 @@ const Chat = () => {
                         onClick={(e) => {
                           e.stopPropagation();
                           setGroupToEdit(group);
-                          setSelectedMembers(group.members.filter(m => !m.includes('You')));
+                          setSelectedMembers(group.members.filter(m => m._id !== userData?._id).map(m => m._id));
                           setShowEditMembersModal(true);
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -251,7 +303,7 @@ const Chat = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteGroup(group.id, group.name);
+                      handleDeleteGroup(group._id, group.name);
                     }}
                     className="text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-gray-100"
                   >
@@ -272,7 +324,7 @@ const Chat = () => {
             <button className="text-gray-600 hover:bg-gray-100 p-2 rounded-full">
             </button>
             <button className="text-gray-600 hover:bg-gray-100 p-2 rounded-full">
-              <IoMdNotifications size={20} />
+              {/* <IoMdNotifications size={20} /> */}
             </button>
           </div>
         </div>
@@ -295,9 +347,9 @@ const Chat = () => {
                 <div className="text-sm font-medium mb-1">
                   {message.sender}
                 </div>
-                <p>{message.text}</p>
-                <p className={`text-xs mt-1 ${
-                  message.sender === (userData?.name || 'Guest (You)') ? 'text-sky-100' : 'text-gray-500'
+                <p>{message.text}</p>           
+                 <p className={`text-xs mt-1 ${
+                  message.sender === userData?.name ? 'text-sky-100' : 'text-gray-500'
                 }`}>
                   {message.timestamp}
                 </p>
@@ -323,24 +375,26 @@ const Chat = () => {
             </button>
           </div>
         </form>
-      </div>
-
-      <div className="w-64 bg-white border-l flex flex-col">
-        <div className="p-4 border-b flex justify-between items-center">
+      </div>      <div className="w-64 bg-white border-l flex flex-col">
+        <div 
+          className="p-4 border-b flex justify-between items-center cursor-pointer" 
+          onClick={() => setShowMembers(!showMembers)}
+        >
           <div className="flex items-center space-x-2">
             <h2 className="font-semibold">Members</h2>
             <span className="bg-gray-200 px-2 rounded-full text-sm">{members.length}</span>
           </div>
-          <button className="text-gray-600 hover:bg-gray-100 p-2 rounded-full">
-            <IoPersonAdd size={20} />
-          </button>
+          <IoIosArrowDropdown 
+            className={`text-gray-600 transform transition-transform ${showMembers ? '' : '-rotate-90'}`} 
+            size={20} 
+          />
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {members.map((member, index) => (
-            <div key={index} className="p-4 flex items-center space-x-3">
+        <div className={`flex-1 overflow-y-auto transition-all duration-300 ${showMembers ? 'max-h-full' : 'max-h-0'}`}>
+          {members.map((member) => (
+            <div key={member._id} className="p-4 flex items-center space-x-3">
               <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className={member.includes('You') ? 'text-blue-500' : ''}>
-                {member}
+              <span className={member._id === userData?._id ? 'text-blue-500' : ''}>
+                {member.name}
               </span>
             </div>
           ))}
@@ -384,23 +438,23 @@ const Chat = () => {
                   Select Members
                 </label>
                 <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
-                  {members.map((member, index) => (
+                  {members.map((member) => (
                     <div
-                      key={index}
+                      key={member._id}
                       onClick={() => toggleUserSelection(member)}
                       className={`p-2 cursor-pointer rounded-lg mb-1 flex items-center space-x-2
-                        ${selectedUsers.includes(member) ? 'bg-sky-100' : 'hover:bg-gray-100'}
-                        ${member.includes('You') ? 'opacity-50 cursor-not-allowed' : ''}
+                        ${selectedUsers.includes(member._id) ? 'bg-sky-100' : 'hover:bg-gray-100'}
+                        ${member._id === userData?._id ? 'opacity-50 cursor-not-allowed' : ''}
                       `}
                     >
                       <input
                         type="checkbox"
-                        checked={selectedUsers.includes(member)}
+                        checked={selectedUsers.includes(member._id)}
                         onChange={() => {}}
-                        disabled={member.includes('You')}
+                        disabled={member._id === userData?._id}
                         className="h-4 w-4 text-sky-400 rounded"
                       />
-                      <span>{member}</span>
+                      <span>{member.name}</span>
                     </div>
                   ))}
                 </div>
@@ -489,23 +543,23 @@ const Chat = () => {
                   Select Members
                 </label>
                 <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
-                  {members.map((member, index) => (
+                  {members.map((member) => (
                     <div
-                      key={index}
+                      key={member._id}
                       onClick={() => toggleMemberSelection(member)}
                       className={`p-2 cursor-pointer rounded-lg mb-1 flex items-center space-x-2
-                        ${selectedMembers.includes(member) ? 'bg-sky-100' : 'hover:bg-gray-100'}
-                        ${member.includes('You') ? 'opacity-50 cursor-not-allowed' : ''}
+                        ${selectedMembers.includes(member._id) ? 'bg-sky-100' : 'hover:bg-gray-100'}
+                        ${member._id === userData?._id ? 'opacity-50 cursor-not-allowed' : ''}
                       `}
                     >
                       <input
                         type="checkbox"
-                        checked={selectedMembers.includes(member)}
+                        checked={selectedMembers.includes(member._id)}
                         onChange={() => {}}
-                        disabled={member.includes('You')}
+                        disabled={member._id === userData?._id}
                         className="h-4 w-4 text-sky-400 rounded"
                       />
-                      <span>{member}</span>
+                      <span>{member.name}</span>
                     </div>
                   ))}
                 </div>
