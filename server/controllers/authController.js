@@ -62,8 +62,12 @@ export const login = async (req, res) => {
             return res.json({ success: false, message: "Invalid password" });
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        // Update online status
+        user.isOnline = true;
+        user.lastActive = new Date();
+        await user.save();        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
+        // Set token in cookie
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -71,7 +75,7 @@ export const login = async (req, res) => {
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
-
+        // Send welcome email
         const mailOptions = {
             from: process.env.SENDER_EMAIL,
             to: email,
@@ -79,9 +83,13 @@ export const login = async (req, res) => {
             text: `Welcome to Invextech website. Your account is created with email ID: ${email}`,
         };
 
-        await transporter.sendMail(mailOptions);        return res.json({
+        await transporter.sendMail(mailOptions);
+        
+        // Return success response with token in body
+        return res.json({
             success: true,
             message: "Logged in successfully",
+            token: token, // Send token in response body
             user: { 
                 name: user.name, 
                 email: user.email,
@@ -94,9 +102,16 @@ export const login = async (req, res) => {
     }
 };
   
-// this is logout the user details
 export const logout = async (req, res) => {
     try {
+
+        if (req.userId) {
+            await userModel.findByIdAndUpdate(req.userId, {
+                isOnline: false,
+                lastActive: new Date()
+            });
+        }
+
         res.clearCookie('token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',

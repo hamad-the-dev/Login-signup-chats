@@ -9,6 +9,8 @@ const userSchema =new mongoose.Schema({
         isAccountVerified: {type: Boolean, default: false},
         resetOtp: {type: String, default: ''},
         resetOtpExpiredAt: {type: Number, default: 0},
+        isOnline: {type: Boolean, default: false},
+        lastActive: {type: Date, default: Date.now}
 })
 
 

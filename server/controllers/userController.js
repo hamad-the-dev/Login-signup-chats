@@ -27,11 +27,22 @@ try {
 }
 }
 
-export const getAllUsersExceptMe = async (req, res) => {
+export const getOnlineUsers = async (req, res) => {
   try {
     const { userid } = req.body;
-    const users = await userModel.find({ _id: { $ne: userid } }, { password: 0 });
-    res.json({ success: true, users });
+    const users = await userModel.find(
+      { _id: { $ne: userid } },
+      { _id: 1, name: 1, email: 1 }
+    );
+
+    res.json({
+      success: true,
+      users: users.map(user => ({
+        _id: user._id,
+        name: user.name,
+        email: user.email
+      }))
+    });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
