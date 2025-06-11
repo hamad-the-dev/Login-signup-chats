@@ -62,7 +62,7 @@ const Chat = () => {
         }
       } catch (error) {
         console.error('Error fetching online users:', error);
-      }
+      } 
     };
 
     fetchOnlineUsers();
@@ -263,7 +263,8 @@ const Chat = () => {
                   className="flex-1"
                   onClick={() => setActiveGroup(group.name)}
                 >
-                  <div className="font-medium">{group.name}</div>                  <div className="text-sm text-gray-500">
+                  <div className="font-medium">{group.name}</div>              
+                <div className="text-sm text-gray-500">
                     Members: {group.members.map(member => member.name).join(', ')}
                   </div>
                 </div>
@@ -382,7 +383,9 @@ const Chat = () => {
         >
           <div className="flex items-center space-x-2">
             <h2 className="font-semibold">Members</h2>
-            <span className="bg-gray-200 px-2 rounded-full text-sm">{members.length}</span>
+            <span className="bg-gray-200 px-2 rounded-full text-sm">{members.length}
+              
+            </span>
           </div>
           <IoIosArrowDropdown 
             className={`text-gray-600 transform transition-transform ${showMembers ? '' : '-rotate-90'}`} 

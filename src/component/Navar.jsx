@@ -7,7 +7,8 @@ import { toast } from "react-toastify";
 const Navbar = () => {
   const navigate = useNavigate();
   const { userData, setUserData, setIsLoggedin, backendurl } =
-    useContext(AppContext);  const sendverificationotp = async () => {
+    useContext(AppContext); 
+     const sendverificationotp = async () => {
     try {
       console.log('Sending verification OTP for:', userData); 
       if (!userData?._id || !userData?.email) {
