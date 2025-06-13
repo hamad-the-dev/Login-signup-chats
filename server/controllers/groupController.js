@@ -109,7 +109,19 @@ export const renameGroup = async (req, res) => {
             groupId,
             { name },
             { new: true }
-        ).populate('members', 'name email');
+        )
+        .populate({
+            path: 'members',
+            select: 'name email _id'
+        })
+        .populate({
+            path: 'createdBy',
+            select: 'name email _id'
+        })
+        .populate({
+            path: 'messages.sender',
+            select: 'name _id'
+        });
 
         if (!group) {
             return res.json({
@@ -189,3 +201,60 @@ export const getAllGroups = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+export const deleteMessages = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        
+        const group = await groupModel.findById(groupId);
+        if (!group) {
+            return res.json({
+                success: false,
+                message: 'Group not found'
+            });
+        }
+        group.messages = [];
+        await group.save();
+
+        res.json({
+            success: true,
+            message: 'Messages deleted successfully'
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+export const deleteMessage = async (req, res) => {
+    try {
+        const { groupId, messageId } = req.params;
+        
+        const group = await groupModel.findById(groupId);
+        if (!group) {
+            return res.json({
+                success: false,
+                message: 'Group not found'
+            });
+        }
+
+        // Find index of message to delete
+        const messageIndex = group.messages.findIndex(msg => msg._id.toString() === messageId);
+        if (messageIndex === -1) {
+            return res.json({
+                success: false,
+                message: 'Message not found'
+            });
+        }
+
+        // Remove message from array
+        group.messages.splice(messageIndex, 1);
+        await group.save();
+
+        res.json({
+            success: true,
+            message: 'Message deleted successfully'
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
